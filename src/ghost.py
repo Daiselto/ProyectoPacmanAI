@@ -160,12 +160,64 @@ class Ghost(object):
                 rnd_row
             )
         elif self.state in [GhostState.normal, GhostState.vulnerable]:
-            self.current_path = path_finder.get_min_path(
-                self.nearest_col,
-                self.nearest_row,
-                player.nearest_col,
-                player.nearest_row
-            )
+            if self.id == 2: # Inky - movimiento aleatorio
+                rnd_col, rnd_row = path_finder.get_random_allow_position()
+                self.current_path = path_finder.get_min_path(
+                    self.nearest_col,
+                    self.nearest_row,
+                    rnd_col,
+                    rnd_row
+                )
+            elif self.id == 3:  # Clyde - tímido
+                dist = abs(self.nearest_col - player.nearest_col) + abs(self.nearest_row - player.nearest_row)
+                if dist < 8:
+                    rnd_col, rnd_row = path_finder.get_random_allow_position()
+                    self.current_path = path_finder.get_min_path(
+                        self.nearest_col,
+                        self.nearest_row,
+                        rnd_col,
+                        rnd_row
+                    )
+                else:
+                    self.current_path = path_finder.get_min_path(
+                        self.nearest_col,
+                        self.nearest_row,
+                        player.nearest_col,
+                        player.nearest_row
+                    )
+            elif self.id == 1:  # Pinky - predicción de movimientos
+                dir_col = 0
+                dir_row = 0
+                if player.vel_x > 0:
+                    dir_col = 1
+                elif player.vel_x < 0:
+                    dir_col = -1
+                elif player.vel_y > 0:
+                    dir_row = 1
+                elif player.vel_y < 0:
+                    dir_row = -1
+
+                target_col = player.nearest_col + (dir_col * 4)
+                target_row = player.nearest_row + (dir_row * 4)
+
+                max_row = path_finder.state_map.shape[0] - 1
+                max_col = path_finder.state_map.shape[1] - 1
+                target_col = max(0, min(target_col, max_col))
+                target_row = max(0, min(target_row, max_row))
+
+                self.current_path = path_finder.get_min_path(
+                    self.nearest_col,
+                    self.nearest_row,
+                    target_col,
+                    target_row
+                )
+            else:  # Blinky - persecución directa
+                self.current_path = path_finder.get_min_path(
+                    self.nearest_col,
+                    self.nearest_row,
+                    player.nearest_col,
+                    player.nearest_row
+                )
         elif self.state == GhostState.spectacles:
             self.current_path = path_finder.get_min_path(
                 self.nearest_col,
