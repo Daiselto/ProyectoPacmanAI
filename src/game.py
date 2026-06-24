@@ -343,7 +343,9 @@ class Game(object):
         elif self.game_mode == GameMode.change_ghosts:
             pass
         elif self.game_mode == GameMode.black_screen:
-            pass
+            if self.mode_timer > 60:
+                self.metrics.reporte()
+                self.is_run = False
 
         if self.game_mode not in [GameMode.wait_after_finishing_level, GameMode.wait_to_start, GameMode.black_screen]:
             self.check_ghosts_state()
