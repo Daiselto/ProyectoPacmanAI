@@ -4,6 +4,7 @@ import threading
 from typing import Union, Tuple, Dict, Any
 
 import pygame as pg
+from .metrics import Metrics
 from pygame.mixer import SoundType
 from pygame.surface import SurfaceType
 
@@ -56,6 +57,7 @@ class Game(object):
                 "width": pg.display.Info().current_w if not state_active else (pg.display.Info().current_w // 2) - 24
             }
         self.score = 0
+        self.metrics = Metrics()
         self.total_rewards = 0
         self.mode_timer = 0
         self.ghosts_timer = 0
@@ -160,6 +162,7 @@ class Game(object):
             self.draw()
             pg.display.flip()
             self.clock.tick(60)
+            self.metrics.tick()
 
     def event_loop(self):
         if self.game_mode in MOVE_MODES:
@@ -201,6 +204,7 @@ class Game(object):
             return Action.DOWN
 
     def quit_game(self):
+        self.metrics.reporte()
         pg.quit()
         sys.exit(0)
 
@@ -288,6 +292,12 @@ class Game(object):
             pass
         elif self.game_mode == GameMode.hit_ghost:
             if self.mode_timer == 90:
+                # registrar qué fantasma atrapó a Pac-Man
+                for ghost in self.ghosts:
+                    from src.utils.ghost_state import GhostState
+                    if ghost.state == GhostState.normal:
+                        self.metrics.registrar_captura(ghost.id)
+                        break
                 self.restart()
                 self.player.lives -= 1
                 if self.player.lives == -1:
@@ -416,6 +426,7 @@ class Game(object):
                         self.add_score(100)
                         self.add_reward(2)
                         self.make_ghosts_vulnerable()
+                        self.metrics.registrar_vulnerable()
                     elif self.maze.map_matrix[row][col] == 11:
                         # ran into a horizontal door
                         for i in range(self.maze.shape[1]):
@@ -452,6 +463,7 @@ class Game(object):
                         self.snd_eat_gh.play()
 
                     ghost.set_spectacles(self.path_finder, self.player)
+                    self.metrics.registrar_fantasma_comido()
                     self.set_mode(GameMode.wait_after_eating_ghost)
 
     def check_if_player_hit_wall(self, x: int, y: int) -> bool:
