@@ -160,7 +160,43 @@ class Ghost(object):
                 rnd_col,
                 rnd_row
             )
-        elif self.state in [GhostState.normal, GhostState.vulnerable]:
+        elif self.state == GhostState.vulnerable:
+            try:
+                # Dirección opuesta a Pac-Man, normalizada a 1 casilla
+                diff_col = self.nearest_col - player.nearest_col
+                diff_row = self.nearest_row - player.nearest_row
+
+                if diff_col != 0:
+                    diff_col = diff_col // abs(diff_col)
+                if diff_row != 0:
+                    diff_row = diff_row // abs(diff_row)
+
+                max_row = path_finder.state_map.shape[0] - 1
+                max_col = path_finder.state_map.shape[1] - 1
+
+                flee_col = max(0, min(self.nearest_col + diff_col * 3, max_col))
+                flee_row = max(0, min(self.nearest_row + diff_row * 3, max_row))
+
+                # Solo ir si es celda caminable (valor 0)
+                if path_finder.state_map[flee_row][flee_col] != 0:
+                    flee_col, flee_row = path_finder.get_random_allow_position()
+
+                self.current_path = path_finder.get_min_path(
+                    self.nearest_col,
+                    self.nearest_row,
+                    flee_col,
+                    flee_row
+                )
+            except Exception:
+                 # Si falla cualquier cálculo, ir a posición random segura
+                rnd_col, rnd_row = path_finder.get_random_allow_position()
+                self.current_path = path_finder.get_min_path(
+                    self.nearest_col,
+                    self.nearest_row,
+                    rnd_col,
+                    rnd_row
+                )
+        elif self.state == GhostState.normal:
             if self.id == 2: # Inky - predice basado en Pacman + posición de Blinky target base: 2 casillas adelante de Pacman
                 dir_col = 0
                 dir_row = 0
