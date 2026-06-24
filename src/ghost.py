@@ -7,6 +7,7 @@ from pygame.surface import SurfaceType
 from src.constants import TILE_SIZE, VULNERABLE_GHOST_COLOR, WHITE_GHOST_COLOR, ROOT_DIR
 from src.map import Map
 from src.pacman import Pacman
+from src.utils import path_finder
 from src.utils.functions import get_image_surface
 from src.utils.game_mode import GameMode
 from src.utils.ghost_state import GhostState
@@ -134,7 +135,7 @@ class Ghost(object):
 
             self.anim_delay = 0
 
-    def move(self, player: Pacman):
+    def move(self, player: Pacman, all_ghosts=None):
         self.x += self.vel_x
         self.y += self.vel_y
 
@@ -148,9 +149,9 @@ class Ghost(object):
             if self.current_path is not None and len(self.current_path) > 0:
                 self.follow_next_path()
             else:
-                self.find_path(path_finder=self.path_finder, player=player)
+                self.find_path(path_finder=self.path_finder, player=player, all_ghosts=all_ghosts)
 
-    def find_path(self, path_finder: PathFinder, player: Optional[Pacman], random=False):
+    def find_path(self, path_finder: PathFinder, player: Optional[Pacman], random=False, all_ghosts=None):
         if random:
             rnd_col, rnd_row = path_finder.get_random_allow_position()
             self.current_path = path_finder.get_min_path(
@@ -160,7 +161,44 @@ class Ghost(object):
                 rnd_row
             )
         elif self.state in [GhostState.normal, GhostState.vulnerable]:
-            if self.id == 2: # Inky - movimiento aleatorio
+            if self.id == 2: # Inky - predice basado en Pacman + posición de Blinky target base: 2 casillas adelante de Pacman
+                dir_col = 0
+                dir_row = 0
+                if player.vel_x > 0:
+                    dir_col = 1
+                elif player.vel_x < 0:
+                    dir_col = -1
+                elif player.vel_y > 0:
+                    dir_row = 1
+                elif player.vel_y < 0:
+                    dir_row = -1
+                    
+                pivot_col = player.nearest_col + (dir_col * 2)
+                pivot_row = player.nearest_row + (dir_row * 2)
+                
+                # si tenemos a Blinky, calcular vector desde Blinky al pivot y duplicarlo
+                if all_ghosts is not None:
+                    blinky = next((g for g in all_ghosts if g.id == 0), None)
+                    if blinky is not None:
+                        target_col = pivot_col + (pivot_col - blinky.nearest_col)
+                        target_row = pivot_row + (pivot_row - blinky.nearest_row)
+                    else:
+                        target_col, target_row = pivot_col, pivot_row
+                else:
+                    target_col, target_row = pivot_col, pivot_row
+                    
+                max_row = path_finder.state_map.shape[0] - 1
+                max_col = path_finder.state_map.shape[1] - 1
+                target_col = max(0, min(target_col, max_col))
+                target_row = max(0, min(target_row, max_row))
+                
+                self.current_path = path_finder.get_min_path(
+                    self.nearest_col,
+                    self.nearest_row,
+                    target_col,
+                    target_row
+                )
+            elif self.id == 3:  # Clyde - estúpido, movimiento completamente random
                 rnd_col, rnd_row = path_finder.get_random_allow_position()
                 self.current_path = path_finder.get_min_path(
                     self.nearest_col,
@@ -168,23 +206,6 @@ class Ghost(object):
                     rnd_col,
                     rnd_row
                 )
-            elif self.id == 3:  # Clyde - tímido
-                dist = abs(self.nearest_col - player.nearest_col) + abs(self.nearest_row - player.nearest_row)
-                if dist < 8:
-                    rnd_col, rnd_row = path_finder.get_random_allow_position()
-                    self.current_path = path_finder.get_min_path(
-                        self.nearest_col,
-                        self.nearest_row,
-                        rnd_col,
-                        rnd_row
-                    )
-                else:
-                    self.current_path = path_finder.get_min_path(
-                        self.nearest_col,
-                        self.nearest_row,
-                        player.nearest_col,
-                        player.nearest_row
-                    )
             elif self.id == 1:  # Pinky - predicción de movimientos
                 dir_col = 0
                 dir_row = 0
@@ -197,8 +218,8 @@ class Ghost(object):
                 elif player.vel_y < 0:
                     dir_row = -1
 
-                target_col = player.nearest_col + (dir_col * 4)
-                target_row = player.nearest_row + (dir_row * 4)
+                target_col = player.nearest_col + (dir_col * 3)
+                target_row = player.nearest_row + (dir_row * 3)
 
                 max_row = path_finder.state_map.shape[0] - 1
                 max_col = path_finder.state_map.shape[1] - 1

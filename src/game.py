@@ -212,7 +212,7 @@ class Game(object):
 
     def move_ghosts(self):
         for ghost in self.ghosts:
-            ghost.move(player=self.player)
+            ghost.move(player=self.player, all_ghosts=self.ghosts)
 
     def update_ghosts_position_in_map(self):
         self.maze.update_ghosts_position(self.ghosts)
