@@ -1,6 +1,8 @@
 from importlib.resources import path
 import os
 from os import path
+from random import random
+import random
 from typing import Optional, Tuple
 
 import pygame as pg
@@ -158,63 +160,53 @@ class Ghost(object):
                 self.find_path(path_finder=self.path_finder, player=player, all_ghosts=all_ghosts)
 
     def find_path(self, path_finder: PathFinder, player: Optional[Pacman], random=False, all_ghosts=None):
+        nombres = {0: "Blinky", 1: "Pinky", 2: "Inky", 3: "Clyde"}
+        nombre = nombres.get(self.id, f"Ghost_{self.id}")
+
         # Usar modelo PPO si está disponible y el fantasma no es Clyde
         if self.trained_agent is not None and self.trained_agent.model is not None \
-                and self.id != 3 and not random \
-                and self.state == GhostState.normal:
+            and self.id == 0 and not random \
+            and self.state == GhostState.normal:
             all_ghosts_list = all_ghosts if all_ghosts is not None else [self]
             actions = self.trained_agent.get_actions(all_ghosts_list, player)
             path = self.trained_agent.decode_to_path(self, actions[self.id], path_finder)
             if path:
                 self.current_path = path
                 self.follow_next_path()
+                print(f"[{nombre}] PPO acción {actions[self.id]} | pos ({self.nearest_col},{self.nearest_row}) → player ({player.nearest_col},{player.nearest_row})")
                 return
+
         if random:
             rnd_col, rnd_row = path_finder.get_random_allow_position()
             self.current_path = path_finder.get_min_path(
-                self.nearest_col,
-                self.nearest_row,
-                rnd_col,
-                rnd_row
-            )
+                self.nearest_col, self.nearest_row, rnd_col, rnd_row)
+            print(f"[{nombre}] Random inicial → target ({rnd_col},{rnd_row})")
+
         elif self.state == GhostState.vulnerable:
             try:
-                # Dirección opuesta a Pac-Man, normalizada a 1 casilla
                 diff_col = self.nearest_col - player.nearest_col
                 diff_row = self.nearest_row - player.nearest_row
-
                 if diff_col != 0:
                     diff_col = diff_col // abs(diff_col)
                 if diff_row != 0:
                     diff_row = diff_row // abs(diff_row)
-
                 max_row = path_finder.state_map.shape[0] - 1
                 max_col = path_finder.state_map.shape[1] - 1
-
                 flee_col = max(0, min(self.nearest_col + diff_col * 3, max_col))
                 flee_row = max(0, min(self.nearest_row + diff_row * 3, max_row))
-
-                # Solo ir si es celda caminable (valor 0)
                 if path_finder.state_map[flee_row][flee_col] != 0:
                     flee_col, flee_row = path_finder.get_random_allow_position()
-
                 self.current_path = path_finder.get_min_path(
-                    self.nearest_col,
-                    self.nearest_row,
-                    flee_col,
-                    flee_row
-                )
+                    self.nearest_col, self.nearest_row, flee_col, flee_row)
+                print(f"[{nombre}] VULNERABLE huyendo → ({flee_col},{flee_row}) | pos ({self.nearest_col},{self.nearest_row})")
             except Exception:
-                 # Si falla cualquier cálculo, ir a posición random segura
                 rnd_col, rnd_row = path_finder.get_random_allow_position()
                 self.current_path = path_finder.get_min_path(
-                    self.nearest_col,
-                    self.nearest_row,
-                    rnd_col,
-                    rnd_row
-                )
+                    self.nearest_col, self.nearest_row, rnd_col, rnd_row)
+                print(f"[{nombre}] VULNERABLE fallback → ({rnd_col},{rnd_row})")
+
         elif self.state == GhostState.normal:
-            if self.id == 2: # Inky - predice basado en Pacman + posición de Blinky target base: 2 casillas adelante de Pacman
+            if self.id == 2:  # Inky
                 dir_col = 0
                 dir_row = 0
                 if player.vel_x > 0:
@@ -225,11 +217,8 @@ class Ghost(object):
                     dir_row = 1
                 elif player.vel_y < 0:
                     dir_row = -1
-                    
                 pivot_col = player.nearest_col + (dir_col * 2)
                 pivot_row = player.nearest_row + (dir_row * 2)
-                
-                # si tenemos a Blinky, calcular vector desde Blinky al pivot y duplicarlo
                 if all_ghosts is not None:
                     blinky = next((g for g in all_ghosts if g.id == 0), None)
                     if blinky is not None:
@@ -239,27 +228,21 @@ class Ghost(object):
                         target_col, target_row = pivot_col, pivot_row
                 else:
                     target_col, target_row = pivot_col, pivot_row
-                    
                 max_row = path_finder.state_map.shape[0] - 1
                 max_col = path_finder.state_map.shape[1] - 1
                 target_col = max(0, min(target_col, max_col))
                 target_row = max(0, min(target_row, max_row))
-                
                 self.current_path = path_finder.get_min_path(
-                    self.nearest_col,
-                    self.nearest_row,
-                    target_col,
-                    target_row
-                )
-            elif self.id == 3:  # Clyde - estúpido, movimiento completamente random
+                    self.nearest_col, self.nearest_row, target_col, target_row)
+                print(f"[Inky] Coordinación con Blinky → pivot ({pivot_col},{pivot_row}) → target ({target_col},{target_row})")
+
+            elif self.id == 3:  # Clyde
                 rnd_col, rnd_row = path_finder.get_random_allow_position()
                 self.current_path = path_finder.get_min_path(
-                    self.nearest_col,
-                    self.nearest_row,
-                    rnd_col,
-                    rnd_row
-                )
-            elif self.id == 1:  # Pinky - predicción de movimientos
+                    self.nearest_col, self.nearest_row, rnd_col, rnd_row)
+                print(f"[Clyde] Random → target ({rnd_col},{rnd_row}) | pos ({self.nearest_col},{self.nearest_row})")
+
+            elif self.id == 1:  # Pinky
                 dir_col = 0
                 dir_row = 0
                 if player.vel_x > 0:
@@ -270,43 +253,33 @@ class Ghost(object):
                     dir_row = 1
                 elif player.vel_y < 0:
                     dir_row = -1
-
                 target_col = player.nearest_col + (dir_col * 3)
                 target_row = player.nearest_row + (dir_row * 3)
-
                 max_row = path_finder.state_map.shape[0] - 1
                 max_col = path_finder.state_map.shape[1] - 1
                 target_col = max(0, min(target_col, max_col))
                 target_row = max(0, min(target_row, max_row))
+                self.current_path = path_finder.get_min_path(
+                    self.nearest_col, self.nearest_row, target_col, target_row)
+                print(f"[Pinky] Predicción 3 casillas → target ({target_col},{target_row}) | player ({player.nearest_col},{player.nearest_row})")
 
+            else:  # Blinky
                 self.current_path = path_finder.get_min_path(
-                    self.nearest_col,
-                    self.nearest_row,
-                    target_col,
-                    target_row
-                )
-            else:  # Blinky - persecución directa
-                self.current_path = path_finder.get_min_path(
-                    self.nearest_col,
-                    self.nearest_row,
-                    player.nearest_col,
-                    player.nearest_row
-                )
+                    self.nearest_col, self.nearest_row,
+                    player.nearest_col, player.nearest_row)
+                print(f"[Blinky] Persecución directa → target ({player.nearest_col},{player.nearest_row}) | pos ({self.nearest_col},{self.nearest_row})")
+
         elif self.state == GhostState.spectacles:
             self.current_path = path_finder.get_min_path(
-                self.nearest_col,
-                self.nearest_row,
-                self.respawn_x,
-                self.respawn_y
-            )
+                self.nearest_col, self.nearest_row, self.respawn_x, self.respawn_y)
+            print(f"[{nombre}] Spectacles → volviendo a spawn ({self.respawn_x},{self.respawn_y})")
+
         else:
             rnd_col, rnd_row = path_finder.get_random_allow_position()
             self.current_path = path_finder.get_min_path(
-                self.nearest_col,
-                self.nearest_row,
-                rnd_col,
-                rnd_row
-            )
+                self.nearest_col, self.nearest_row, rnd_col, rnd_row)
+            print(f"[{nombre}] Fallback random → ({rnd_col},{rnd_row})")
+
         self.follow_next_path()
 
     def set_normal(self):
