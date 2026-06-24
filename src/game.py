@@ -19,6 +19,7 @@ from .utils.functions import get_image_surface, check_if_hit
 from .utils.game_mode import GameMode
 from .utils.ghost_state import GhostState
 from .utils.path_finder import PathFinder
+from src.env.trained_agent import TrainedGhostAgent
 
 
 class Game(object):
@@ -75,6 +76,9 @@ class Game(object):
         self.player = Pacman()
         self.path_finder = PathFinder(self.maze.matrix_from_lookup_table(PATH_FINDER_LOOKUP_TABLE))
         self.ghosts = [Ghost(i, GHOST_COLORS[i], self.path_finder) for i in range(0, self.maze.get_number_of_ghosts())]
+        agent = TrainedGhostAgent()
+        for ghost in self.ghosts:
+            ghost.trained_agent = agent
 
         if self.sounds_active:
             self.init_mixer()

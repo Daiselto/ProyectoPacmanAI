@@ -69,8 +69,8 @@ class PacmanEnv(gym.Env):
         if self.enable_render:
             pg.quit()
 
-    def step(self, action: Union[Action, int]):
-        action = Action(int(action)) if type(action) is int else action
+    def step(self, action):
+        action = Action(int(action))
         reward = self._one_step_action(action)
         done = self.get_mode() in [GameMode.game_over, GameMode.black_screen]
         obs = self.get_screen_rgb_array()
@@ -93,7 +93,7 @@ class PacmanEnv(gym.Env):
             'player_action': self.game.player.current_action
         }
 
-    def _one_step_action(self, action: Union[Action, int]) -> int:
+    def _one_step_action(self, action: Action) -> int:
         self.check_game_mode()
 
         if self.get_mode() in [GameMode.game_over, GameMode.black_screen]:

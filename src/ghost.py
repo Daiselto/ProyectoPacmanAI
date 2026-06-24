@@ -1,4 +1,6 @@
+from importlib.resources import path
 import os
+from os import path
 from typing import Optional, Tuple
 
 import pygame as pg
@@ -12,6 +14,7 @@ from src.utils.functions import get_image_surface
 from src.utils.game_mode import GameMode
 from src.utils.ghost_state import GhostState
 from src.utils.path_finder import PathFinder
+from src.env.trained_agent import TrainedGhostAgent
 
 
 class Ghost(object):
@@ -41,6 +44,9 @@ class Ghost(object):
         self.anim = {}
         self.anim_fram = 1
         self.anim_delay = 0
+        
+        # Agente entrenado compartido entre todos los fantasmas
+        self.trained_agent = None
 
     @staticmethod
     def load_ghost_animation(color):
@@ -152,6 +158,17 @@ class Ghost(object):
                 self.find_path(path_finder=self.path_finder, player=player, all_ghosts=all_ghosts)
 
     def find_path(self, path_finder: PathFinder, player: Optional[Pacman], random=False, all_ghosts=None):
+        # Usar modelo PPO si está disponible y el fantasma no es Clyde
+        if self.trained_agent is not None and self.trained_agent.model is not None \
+                and self.id != 3 and not random \
+                and self.state == GhostState.normal:
+            all_ghosts_list = all_ghosts if all_ghosts is not None else [self]
+            actions = self.trained_agent.get_actions(all_ghosts_list, player)
+            path = self.trained_agent.decode_to_path(self, actions[self.id], path_finder)
+            if path:
+                self.current_path = path
+                self.follow_next_path()
+                return
         if random:
             rnd_col, rnd_row = path_finder.get_random_allow_position()
             self.current_path = path_finder.get_min_path(
