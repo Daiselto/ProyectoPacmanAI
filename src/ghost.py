@@ -164,16 +164,17 @@ class Ghost(object):
         nombre = nombres.get(self.id, f"Ghost_{self.id}")
 
         # Usar modelo PPO si está disponible y el fantasma no es Clyde
-        if self.trained_agent is not None and self.trained_agent.model is not None \
-            and self.id == 0 and not random \
-            and self.state == GhostState.normal:
+        if self.trained_agent is not None \
+                and self.trained_agent.models.get(self.id) is not None \
+                and not random \
+                and self.state == GhostState.normal:
             all_ghosts_list = all_ghosts if all_ghosts is not None else [self]
-            actions = self.trained_agent.get_actions(all_ghosts_list, player)
-            path = self.trained_agent.decode_to_path(self, actions[self.id], path_finder)
+            action = self.trained_agent.get_action(self, player, all_ghosts_list)
+            path = self.trained_agent.decode_to_path(self, action, path_finder)
             if path:
                 self.current_path = path
                 self.follow_next_path()
-                print(f"[{nombre}] PPO acción {actions[self.id]} | pos ({self.nearest_col},{self.nearest_row}) → player ({player.nearest_col},{player.nearest_row})")
+                print(f"[{nombre}] PPO acción {action} | pos ({self.nearest_col},{self.nearest_row}) → player ({player.nearest_col},{player.nearest_row})")
                 return
 
         if random:
@@ -213,7 +214,7 @@ class Ghost(object):
                     dir_col = 1
                 elif player.vel_x < 0:
                     dir_col = -1
-                elif player.vel_y > 0:
+                if player.vel_y > 0:
                     dir_row = 1
                 elif player.vel_y < 0:
                     dir_row = -1
@@ -232,6 +233,11 @@ class Ghost(object):
                 max_col = path_finder.state_map.shape[1] - 1
                 target_col = max(0, min(target_col, max_col))
                 target_row = max(0, min(target_row, max_row))
+                try:
+                    if path_finder.state_map[target_row][target_col] != 0:
+                        target_col, target_row = path_finder.get_random_allow_position()
+                except Exception:
+                    target_col, target_row = path_finder.get_random_allow_position()
                 self.current_path = path_finder.get_min_path(
                     self.nearest_col, self.nearest_row, target_col, target_row)
                 print(f"[Inky] Coordinación con Blinky → pivot ({pivot_col},{pivot_row}) → target ({target_col},{target_row})")
