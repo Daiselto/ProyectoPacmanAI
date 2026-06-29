@@ -4,6 +4,8 @@ from gymnasium import spaces
 import pygame as pg
 import random
 
+from torch import dist
+
 from src.controller import Controller
 from src.game import Game
 from src.map import Map
@@ -368,8 +370,19 @@ class ClydeEnv(gym.Env):
             pass
         self.game.move_players()
 
-        # Clyde: recompensa muy baja y aleatoria — sigue siendo impredecible
-        reward = random.uniform(-0.5, 0.5)
+        # Clyde: aprende a acercarse pero con recompensas menores
+        ghost = self.game.ghosts[self.ghost_id]
+        player = self.game.player
+        dist = abs(player.nearest_col - ghost.nearest_col) + abs(player.nearest_row - ghost.nearest_row)
+
+        if not hasattr(self, 'prev_dist'):
+            self.prev_dist = dist
+
+        reward = 0.3 if dist < self.prev_dist else -0.2
+        if dist <= 1:
+            reward = 5.0
+
+        self.prev_dist = dist
 
         done = (self.game.game_mode in [GameMode.game_over, GameMode.hit_ghost] or
                 self.current_step >= self.max_steps)

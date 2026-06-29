@@ -197,13 +197,20 @@ class Ghost(object):
                 flee_row = max(0, min(self.nearest_row + diff_row * 3, max_row))
                 if path_finder.state_map[flee_row][flee_col] != 0:
                     flee_col, flee_row = path_finder.get_random_allow_position()
+                # Verificar que el origen también sea válido
+                src_col = max(0, min(self.nearest_col, max_col))
+                src_row = max(0, min(self.nearest_row, max_row))
                 self.current_path = path_finder.get_min_path(
-                    self.nearest_col, self.nearest_row, flee_col, flee_row)
+                    src_col, src_row, flee_col, flee_row)
                 print(f"[{nombre}] VULNERABLE huyendo → ({flee_col},{flee_row}) | pos ({self.nearest_col},{self.nearest_row})")
             except Exception:
                 rnd_col, rnd_row = path_finder.get_random_allow_position()
-                self.current_path = path_finder.get_min_path(
-                    self.nearest_col, self.nearest_row, rnd_col, rnd_row)
+                try:
+                    self.current_path = path_finder.get_min_path(
+                        max(0, self.nearest_col), max(0, self.nearest_row),
+                        rnd_col, rnd_row)
+                except Exception:
+                    pass
                 print(f"[{nombre}] VULNERABLE fallback → ({rnd_col},{rnd_row})")
 
         elif self.state == GhostState.normal:

@@ -20,6 +20,7 @@ from .utils.game_mode import GameMode
 from .utils.ghost_state import GhostState
 from .utils.path_finder import PathFinder
 from src.env.trained_agent import TrainedGhostAgent
+from src.clyde_learner import ClydeLearner
 
 
 class Game(object):
@@ -76,6 +77,7 @@ class Game(object):
         self.player = Pacman()
         self.path_finder = PathFinder(self.maze.matrix_from_lookup_table(PATH_FINDER_LOOKUP_TABLE))
         self.ghosts = [Ghost(i, GHOST_COLORS[i], self.path_finder) for i in range(0, self.maze.get_number_of_ghosts())]
+        self.clyde_learner = ClydeLearner()
         agent = TrainedGhostAgent()
         for ghost in self.ghosts:
             ghost.trained_agent = agent
@@ -142,10 +144,13 @@ class Game(object):
         self.screen.blit(self.screen_bg, (0, 0))
 
     def start_game(self, restart=False):
-        if restart:
-            self.maze.reinit_map()
-            self.player.lives = 3
-
+        self.maze.reinit_map()
+        self.player.lives = 3
+        self.score = 0
+        self.total_rewards = 0
+        self.mode_timer = 0
+        self.ghosts_timer = 0
+        self.is_run = True
         self.set_mode(0)
         self.init_game()
         self.init_players_in_map()
@@ -209,6 +214,7 @@ class Game(object):
 
     def quit_game(self):
         self.metrics.reporte()
+        self.clyde_learner.save_experiences()
         pg.quit()
         sys.exit(0)
 
@@ -220,7 +226,20 @@ class Game(object):
 
     def move_ghosts(self):
         for ghost in self.ghosts:
-            ghost.move(player=self.player, all_ghosts=self.ghosts)
+            if ghost.id == 3:  # Clyde aprende de la partida real
+                prev_dist = abs(self.player.nearest_col - ghost.nearest_col) + \
+                            abs(self.player.nearest_row - ghost.nearest_row)
+                action = self.clyde_learner.get_action(ghost, self.player)
+                ghost.move(player=self.player, all_ghosts=self.ghosts)
+                new_dist = abs(self.player.nearest_col - ghost.nearest_col) + \
+                       abs(self.player.nearest_row - ghost.nearest_row)
+                reward = 1.0 if new_dist < prev_dist else -0.3
+                if new_dist <= 1:
+                    reward = 10.0
+                done = self.game_mode in [GameMode.game_over, GameMode.hit_ghost]
+                self.clyde_learner.record(ghost, self.player, action, reward, done)
+            else:
+                ghost.move(player=self.player, all_ghosts=self.ghosts)
 
     def update_ghosts_position_in_map(self):
         self.maze.update_ghosts_position(self.ghosts)
@@ -350,6 +369,7 @@ class Game(object):
             if self.mode_timer > 60:
                 self.metrics.reporte()
                 self.is_run = False
+                self.clyde_learner.save_experiences()
 
         if self.game_mode not in [GameMode.wait_after_finishing_level, GameMode.wait_to_start, GameMode.black_screen]:
             self.check_ghosts_state()

@@ -76,7 +76,7 @@ class TrainedGhostAgent:
                 float(player.nearest_col), float(player.nearest_row),
             ], dtype=np.float32)
 
-        action, _ = model.predict(obs, deterministic=True)
+        action, _ = model.predict(obs, deterministic=False)
         return int(action)
 
     def decode_to_path(self, ghost, action: int, path_finder) -> list:
