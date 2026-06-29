@@ -272,6 +272,11 @@ class Ghost(object):
                 max_col = path_finder.state_map.shape[1] - 1
                 target_col = max(0, min(target_col, max_col))
                 target_row = max(0, min(target_row, max_row))
+                try:
+                    if path_finder.state_map[target_row][target_col] != 0:
+                        target_col, target_row = path_finder.get_random_allow_position()
+                except Exception:
+                    target_col, target_row = path_finder.get_random_allow_position()
                 self.current_path = path_finder.get_min_path(
                     self.nearest_col, self.nearest_row, target_col, target_row)
                 print(f"[Pinky] Predicción 3 casillas → target ({target_col},{target_row}) | player ({player.nearest_col},{player.nearest_row})")
