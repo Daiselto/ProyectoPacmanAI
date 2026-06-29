@@ -150,6 +150,12 @@ class Ghost(object):
         self.nearest_row = int(((self.y + TILE_SIZE / 2) / TILE_SIZE))
         self.nearest_col = int(((self.x + TILE_SIZE / 2) / TILE_SIZE))
 
+        # Clampar para que nunca salga del mapa
+        max_row = self.path_finder.state_map.shape[0] - 1
+        max_col = self.path_finder.state_map.shape[1] - 1
+        self.nearest_row = max(0, min(self.nearest_row, max_row))
+        self.nearest_col = max(0, min(self.nearest_col, max_col))
+
         self.check_ghost_state(self.path_finder, player)
 
         if (self.x % TILE_SIZE) == 0 and (self.y % TILE_SIZE) == 0:
@@ -282,10 +288,14 @@ class Ghost(object):
                 print(f"[Pinky] Predicción 3 casillas → target ({target_col},{target_row}) | player ({player.nearest_col},{player.nearest_row})")
 
             else:  # Blinky
+                max_row = path_finder.state_map.shape[0] - 1
+                max_col = path_finder.state_map.shape[1] - 1
+                tgt_col = max(0, min(player.nearest_col, max_col))
+                tgt_row = max(0, min(player.nearest_row, max_row))
                 self.current_path = path_finder.get_min_path(
                     self.nearest_col, self.nearest_row,
-                    player.nearest_col, player.nearest_row)
-                print(f"[Blinky] Persecución directa → target ({player.nearest_col},{player.nearest_row}) | pos ({self.nearest_col},{self.nearest_row})")
+                    tgt_col, tgt_row)
+                print(f"[Blinky] Persecución directa → target ({tgt_col},{tgt_row}) | pos ({self.nearest_col},{self.nearest_row})")
 
         elif self.state == GhostState.spectacles:
             self.current_path = path_finder.get_min_path(
